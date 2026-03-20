@@ -1,102 +1,43 @@
-# Low-Resolution CCTV Face Enhancement
-**Sentio Mind · POC Assignment · Project 4**
+# Low resolution CCTV Face Enhancement Pipeline
+**Project 4: Low-Resolution CCTV Face Enhancement** **Candidate:** Aditya Raghuveer (CS22B019)
 
-GitHub: https://github.com/Sentiodirector/sentio-poc-face-enhancement.git
-Branch: FirstName_LastName_RollNumber
+This repository contains a specialized Computer Vision pipeline designed to transform low-resolution (12px–80px) CCTV facial crops into sharp, $240 \times 240$ forensic-grade profile images using classical image processing techniques.
 
----
+##  Project Overview
+The objective is to improve the clarity of facial features extracted from blurry, noisy CCTV footage. To ensure forensic integrity and high-speed CPU performance, this project avoids Deep Learning and instead utilizes a strictly ordered **4-Stage Classical Pipeline**.
 
-## Why This Exists
-
-School CCTV cameras are mounted high and use cheap lenses. When Sentio Mind crops a face from that footage it is often 12 to 80 pixels wide. At that size DeepFace emotion analysis gives garbage, face_recognition matching fails most of the time, and the profile photos shown to staff look like blurry blobs. No deep learning super-resolution models allowed — this has to run on CPU in under 30 seconds for 100 faces.
-
----
-
-## What You Receive
-
-```
-p4_face_enhancement/
-├── raw_faces/
-│   ├── face_001.jpg        ← tiny CCTV face crops, typically 12–80px wide
-│   └── ...                 ← download from dataset link
-├── reference_identities/
-│   ├── person_A.jpg        ← clear high-res photos for evaluation only
-│   └── ...
-├── face_enhancement.py     ← your template — copy to solution.py
-├── face_enhancement.json   ← schema for evaluation_metrics.json
-└── README.md
-```
+### 📁 Repository Structure
+* `extract_faces.py`: Script to detect and isolate unique faces from source video.
+* `solution.py`: The core 4-stage enhancement engine.
+* `evaluation_metrics.json`: Automated quality validation (SSIM & Laplacian Sharpness).
+* `enhancement_report.html`: Side-by-side A/B comparison of results.
+* `raw_faces/`: extracted low-resolution crops.
+* `enhanced_faces/`: Final processed $240 \times 240$ outputs.
+* `reference_identities/`: given ID photos for recognition testing.
 
 ---
 
-## What You Must Build
+##  The 4-Stage Forensic Pipeline
 
-Run `python solution.py` → it must produce:
+1.  **Stage 1: Denoising** Uses `cv2.fastNlMeansDenoisingColored` ($h=8$) to eliminate sensor noise and compression artifacts without destroying edge information.
+    
+2.  **Stage 2: Contrast Enhancement (CLAHE)** Processing is performed in the **LAB color space**. Contrast Limited Adaptive Histogram Equalization ($clipLimit=3.5$) is applied to the L-channel to recover facial details hidden in shadows or harsh lighting.
 
-1. `enhanced_faces/` — all processed images at exactly 240×240 JPEG
-2. `enhancement_report.html` — side-by-side A/B grid: original vs enhanced
-3. `evaluation_metrics.json` — follows `face_enhancement.json` schema exactly
+3.  **Stage 3: Multi-step Upscaling** Small faces ($<64px$) undergo a sequence of Lanczos4 interpolation $\rightarrow$ Unsharp Masking $\rightarrow$ final resizing to the target $240 \times 240$ resolution.
 
-### The 4-Stage Pipeline (run in this exact order)
-
-**Stage 1 — Denoise**
-```python
-cv2.fastNlMeansDenoisingColored(img, h=8, hColor=8, templateWindowSize=7, searchWindowSize=21)
-```
-
-**Stage 2 — CLAHE**
-Convert to LAB. Apply CLAHE (clipLimit=3.5, tileGridSize=(4,4)) to L channel only. Convert back to BGR.
-
-**Stage 3 — Multi-step upscale**
-If short side < 64px: upscale 2× LANCZOS4 → unsharp mask (sigma=1.0, strength=1.6) → upscale 2× LANCZOS4 → resize to 240×240.
-Else: direct resize to 240×240 LANCZOS4.
-
-**Stage 4 — Zone sharpening**
-Use MediaPipe Face Mesh to locate eye + nose region. Apply unsharp(sigma=0.8, strength=2.0) to that region. Apply unsharp(sigma=1.2, strength=1.3) to the rest. Fallback if no face found: apply unsharp(sigma=1.0, strength=1.5) uniformly.
-
-### Metrics to Report
-
-- Face recognition match accuracy before enhancement (%)
-- Face recognition match accuracy after enhancement (%)
-- Average Laplacian variance before and after (sharpness)
-- Average SSIM improvement (scikit-image)
+4.  **Stage 4: Zone-Specific Sharpening** Leverages `MediaPipe Face Mesh` to create a spatial mask. The eye and nose regions receive aggressive sharpening ($strength=2.0$), while the rest of the face receives lighter sharpening to maintain a natural, non-processed appearance.
 
 ---
 
-## Hard Rules
+##  Execution Guide
 
-- No deep learning models (ESRGAN, GFPGAN, etc.)
-- Output must be exactly 240×240 pixels
-- 100 faces must process in under 30 seconds on CPU
-- Do not rename functions in `face_enhancement.py`
-- Do not change key names in `face_enhancement.json`
-- Python 3.9+, no Jupyter notebooks
+Follow these steps in order to reproduce the results:
 
-## Libraries
+###  Environment Setup and execution
+Install the optimized dependencies (compatible with CPU-only environments):
+```bash
+pip install -r requirements.txt (after this we need to make sure we load Video_1/Class_8_cctv_video_1.mov as it is big file which cant be pushed to github)
 
-```
-opencv-python==4.9.0   face_recognition==1.3.0   mediapipe==0.10.14
-numpy==1.26.4          Pillow==10.3.0             scikit-image==0.22.0
-```
+python extract_faces.py (creates raw_faces/ which consists of images of persons extracted from cctv footage)
 
----
-
-## Submit
-
-| # | File | What |
-|---|------|------|
-| 1 | `solution.py` | Working script |
-| 2 | `enhanced_faces/` | Folder with all 240×240 crops |
-| 3 | `enhancement_report.html` | A/B comparison grid |
-| 4 | `evaluation_metrics.json` | Metrics matching schema |
-| 5 | `demo.mp4` | Screen recording under 2 min |
-
-Push to your branch only. Do not touch main.
-
----
-
-## Bonus
-
-Skip enhancement if Laplacian variance of the input is already above 80 — just resize. This saves time on inputs that are already sharp enough.
-
-*Sentio Mind · 2026*
+python solutions.py (creates enhanced_faces/ based on 4 stgae piepline code and also creates evaluation_metrics.json , enhancement_report.html )
